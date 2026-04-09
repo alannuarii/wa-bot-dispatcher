@@ -6,6 +6,7 @@ WORKDIR /app/backend
 COPY backend/package*.json ./
 RUN npm ci
 COPY backend/ .
+RUN touch .env
 RUN npm run build
 
 # ==========================================
@@ -31,6 +32,7 @@ RUN apk add --no-cache dumb-init
 COPY --from=backend-builder /app/backend/dist ./backend/dist
 COPY --from=backend-builder /app/backend/node_modules ./backend/node_modules
 COPY --from=backend-builder /app/backend/package*.json ./backend/
+COPY --from=backend-builder /app/backend/.env ./backend/.env
 
 # Copy Frontend Build (Standalone feature)
 COPY --from=frontend-builder /app/frontend/.next/standalone ./frontend
