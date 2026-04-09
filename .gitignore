@@ -1,0 +1,31 @@
+# Dependencies
+node_modules/
+
+# Build outputs
+backend/dist/
+frontend/.next/
+frontend/out/
+
+# Environment
+.env
+backend/.env
+frontend/.env
+
+# Baileys auth state
+auth_info_baileys/
+backend/auth_info_baileys/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+
+# PRD
+PRD.md
