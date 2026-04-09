@@ -43,7 +43,7 @@ RUN mkdir -p /app/backend/auth_info_baileys
 # Prepare startup script
 RUN echo '#!/bin/sh' > /app/start.sh && \
     echo 'echo "Starting Backend (Port 3000)..."' >> /app/start.sh && \
-    echo 'cd /app/backend && node dist/main.js &' >> /app/start.sh && \
+    echo 'cd /app/backend && PORT=3000 node dist/main.js &' >> /app/start.sh && \
     echo 'echo "Starting Frontend (Port 3001)..."' >> /app/start.sh && \
     echo 'cd /app/frontend && node server.js' >> /app/start.sh && \
     chmod +x /app/start.sh
