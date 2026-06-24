@@ -139,6 +139,10 @@ export class WaBotService implements OnModuleInit, OnModuleDestroy {
     }
 
     this.isLoggingOut = false;
+    
+    // Automatically restart connection to generate a new QR code
+    this.logger.log('Session cleared. Restarting connection to generate new QR code...');
+    await this.connectToWhatsApp();
   }
 
   // ─── Group List ─────────────────────────────────────────────
