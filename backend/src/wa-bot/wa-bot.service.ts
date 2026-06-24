@@ -102,25 +102,36 @@ export class WaBotService implements OnModuleInit, OnModuleDestroy {
     // Wait for Baileys to completely release file handles (e.g. key store cache / db writes)
     await new Promise((resolve) => setTimeout(resolve, 1500));
 
-    // Remove auth folder so QR scan is needed again
+    // Empty auth folder so QR scan is needed again (avoid deleting the dir itself due to Docker bind mount EBUSY)
     if (fs.existsSync(this.authFolder)) {
       let attempts = 5;
       while (attempts > 0) {
+        let allDeleted = true;
         try {
-          fs.rmSync(this.authFolder, { recursive: true, force: true });
-          this.logger.log('Auth folder deleted successfully.');
-          break;
+          const files = fs.readdirSync(this.authFolder);
+          for (const file of files) {
+            const filePath = path.join(this.authFolder, file);
+            try {
+              fs.rmSync(filePath, { recursive: true, force: true });
+            } catch (err: any) {
+              allDeleted = false;
+              if (attempts === 1) {
+                this.logger.warn(`Could not delete file ${file}: ${err.message}`);
+              }
+            }
+          }
+          if (allDeleted) {
+            this.logger.log('Auth folder contents cleared successfully.');
+            break;
+          } else {
+            throw new Error('Some files were locked');
+          }
         } catch (err: any) {
           attempts--;
           if (attempts === 0) {
-            this.logger.error(
-              `Failed to delete auth folder after 5 attempts: ${err.message}`,
-              err.stack,
-            );
+            this.logger.error(`Failed to completely clear auth folder after 5 attempts.`);
           } else {
-            this.logger.warn(
-              `Failed to delete auth folder (${err.code}). Retrying in 1s... (${attempts} attempts left)`,
-            );
+            this.logger.warn(`Retrying to clear auth folder contents in 1s... (${attempts} attempts left)`);
             await new Promise((resolve) => setTimeout(resolve, 1000));
           }
         }
