@@ -33,6 +33,7 @@ export class WaBotService implements OnModuleInit, OnModuleDestroy {
   private status: BotStatus = 'DISCONNECTED';
   private qrCodeBase64: string | null = null;
   private readonly authFolder: string;
+  private isLoggingOut = false;
 
   constructor(
     private readonly db: DatabaseService,
@@ -77,19 +78,56 @@ export class WaBotService implements OnModuleInit, OnModuleDestroy {
   async logout(): Promise<void> {
     this.logger.warn('Logging out bot session…');
     await this.systemLogService.log('WARNING', 'Bot logout requested – session cleared');
-    try {
-      await this.sock?.logout();
-    } catch {
-      // already logged out or never connected
-    }
-    this.sock = null;
+    
+    this.isLoggingOut = true;
     this.status = 'DISCONNECTED';
     this.qrCodeBase64 = null;
 
+    const socket = this.sock;
+    this.sock = null;
+
+    if (socket) {
+      try {
+        await socket.logout();
+      } catch (err: any) {
+        this.logger.warn(`Baileys socket logout error: ${err.message}`);
+      }
+      try {
+        socket.end(undefined);
+      } catch (err: any) {
+        this.logger.warn(`Baileys socket end error: ${err.message}`);
+      }
+    }
+
+    // Wait for Baileys to completely release file handles (e.g. key store cache / db writes)
+    await new Promise((resolve) => setTimeout(resolve, 1500));
+
     // Remove auth folder so QR scan is needed again
     if (fs.existsSync(this.authFolder)) {
-      fs.rmSync(this.authFolder, { recursive: true, force: true });
+      let attempts = 5;
+      while (attempts > 0) {
+        try {
+          fs.rmSync(this.authFolder, { recursive: true, force: true });
+          this.logger.log('Auth folder deleted successfully.');
+          break;
+        } catch (err: any) {
+          attempts--;
+          if (attempts === 0) {
+            this.logger.error(
+              `Failed to delete auth folder after 5 attempts: ${err.message}`,
+              err.stack,
+            );
+          } else {
+            this.logger.warn(
+              `Failed to delete auth folder (${err.code}). Retrying in 1s... (${attempts} attempts left)`,
+            );
+            await new Promise((resolve) => setTimeout(resolve, 1000));
+          }
+        }
+      }
     }
+
+    this.isLoggingOut = false;
   }
 
   // ─── Group List ─────────────────────────────────────────────
@@ -142,7 +180,8 @@ export class WaBotService implements OnModuleInit, OnModuleDestroy {
 
       if (connection === 'close') {
         const statusCode = (lastDisconnect?.error as Boom)?.output?.statusCode;
-        const shouldReconnect = statusCode !== DisconnectReason.loggedOut;
+        const shouldReconnect =
+          statusCode !== DisconnectReason.loggedOut && !this.isLoggingOut;
         this.logger.warn(
           `Connection closed (status ${statusCode}). Reconnecting: ${shouldReconnect}`,
         );
@@ -174,7 +213,11 @@ export class WaBotService implements OnModuleInit, OnModuleDestroy {
     });
 
     // ── Credentials Update ─────────────────────────────────
-    this.sock.ev.on('creds.update', saveCreds);
+    this.sock.ev.on('creds.update', () => {
+      if (!this.isLoggingOut) {
+        saveCreds();
+      }
+    });
 
     // ── Message Listener & Dispatch ────────────────────────
     this.sock.ev.on('messages.upsert', async ({ messages, type }) => {
