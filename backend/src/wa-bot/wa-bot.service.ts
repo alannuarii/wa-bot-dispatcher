@@ -23,7 +23,7 @@ import { firstValueFrom } from 'rxjs';
 import pino from 'pino';
 
 // Create a pino logger compatible with Baileys (requires trace, debug, info, warn, error, fatal)
-const baileysLogger = pino({ level: 'silent' }); // Use 'debug' or 'info' to see Baileys internal logs
+const baileysLogger = pino({ level: 'info' }); // Changed to info to debug network issues
 
 export type BotStatus = 'DISCONNECTED' | 'QR_READY' | 'CONNECTED' | 'CONNECTING';
 
@@ -214,10 +214,12 @@ export class WaBotService implements OnModuleInit, OnModuleDestroy {
 
         if (connection === 'close') {
           const statusCode = (lastDisconnect?.error as Boom)?.output?.statusCode;
+          const errorMsg = (lastDisconnect?.error as Error)?.message || 'Unknown error';
+          
           const shouldReconnect =
             statusCode !== DisconnectReason.loggedOut && !this.isLoggingOut;
           this.logger.warn(
-            `Connection closed (status ${statusCode}). Reconnecting: ${shouldReconnect}`,
+            `Connection closed (status ${statusCode} - ${errorMsg}). Reconnecting: ${shouldReconnect}`,
           );
           this.status = 'DISCONNECTED';
           this.qrCodeBase64 = null;
