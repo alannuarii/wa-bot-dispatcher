@@ -247,30 +247,28 @@ export class WaBotService implements OnModuleInit, OnModuleDestroy {
           }
         }
       });
+      // ── Credentials Update ─────────────────────────────────
+      currentSock.ev.on('creds.update', () => {
+        if (!this.isLoggingOut) {
+          saveCreds();
+        }
+      });
+
+      // ── Message Listener & Dispatch ────────────────────────
+      currentSock.ev.on('messages.upsert', async ({ messages, type }) => {
+        if (type !== 'notify') return;
+
+        for (const msg of messages) {
+          try {
+            await this.handleIncomingMessage(msg);
+          } catch (err) {
+            this.logger.error('Error handling message', err);
+          }
+        }
+      });
     } finally {
       this.isConnecting = false;
     }
-  }
-
-    // ── Credentials Update ─────────────────────────────────
-    this.sock.ev.on('creds.update', () => {
-      if (!this.isLoggingOut) {
-        saveCreds();
-      }
-    });
-
-    // ── Message Listener & Dispatch ────────────────────────
-    this.sock.ev.on('messages.upsert', async ({ messages, type }) => {
-      if (type !== 'notify') return;
-
-      for (const msg of messages) {
-        try {
-          await this.handleIncomingMessage(msg);
-        } catch (err) {
-          this.logger.error('Error handling message', err);
-        }
-      }
-    });
   }
 
   // ─── Message Handler ───────────────────────────────────────
