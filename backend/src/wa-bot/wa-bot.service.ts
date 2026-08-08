@@ -170,70 +170,85 @@ export class WaBotService implements OnModuleInit, OnModuleDestroy {
 
   // ─── Core Connection ───────────────────────────────────────
 
+  private isConnecting = false;
+
   private async connectToWhatsApp(): Promise<void> {
-    this.status = 'CONNECTING';
-    this.qrCodeBase64 = null;
+    if (this.isConnecting) return;
+    this.isConnecting = true;
+    try {
+      this.status = 'CONNECTING';
+      this.qrCodeBase64 = null;
 
-    const { state, saveCreds } = await useMultiFileAuthState(this.authFolder);
-    const { version } = await fetchLatestBaileysVersion();
+      const { state, saveCreds } = await useMultiFileAuthState(this.authFolder);
+      const { version } = await fetchLatestBaileysVersion();
+      this.logger.log(`Using Baileys version: ${version.join('.')}`);
 
-    this.sock = makeWASocket({
-      version,
-      logger: baileysLogger,
-      auth: {
-        creds: state.creds,
-        keys: makeCacheableSignalKeyStore(state.keys, baileysLogger),
-      },
-      browser: Browsers.ubuntu('Chrome'),
-      connectTimeoutMs: 60000,
-      defaultQueryTimeoutMs: 0,
-      keepAliveIntervalMs: 10000,
-      generateHighQualityLinkPreview: false,
-    });
+      this.sock = makeWASocket({
+        version,
+        logger: baileysLogger,
+        auth: {
+          creds: state.creds,
+          keys: makeCacheableSignalKeyStore(state.keys, baileysLogger),
+        },
+        browser: Browsers.macOS('Desktop'),
+        connectTimeoutMs: 60000,
+        defaultQueryTimeoutMs: 0,
+        keepAliveIntervalMs: 10000,
+        generateHighQualityLinkPreview: false,
+      });
 
-    // ── Connection Update ──────────────────────────────────
-    this.sock.ev.on('connection.update', async (update) => {
-      const { connection, lastDisconnect, qr } = update;
+      const currentSock = this.sock;
 
-      if (qr) {
-        this.qrCodeBase64 = await QRCode.toDataURL(qr);
-        this.status = 'QR_READY';
-        this.logger.log('QR code generated – waiting for scan');
-      }
+      // ── Connection Update ──────────────────────────────────
+      currentSock.ev.on('connection.update', async (update) => {
+        // Ignore events from old socket instances
+        if (this.sock && this.sock !== currentSock) return;
 
-      if (connection === 'close') {
-        const statusCode = (lastDisconnect?.error as Boom)?.output?.statusCode;
-        const shouldReconnect =
-          statusCode !== DisconnectReason.loggedOut && !this.isLoggingOut;
-        this.logger.warn(
-          `Connection closed (status ${statusCode}). Reconnecting: ${shouldReconnect}`,
-        );
-        this.status = 'DISCONNECTED';
-        this.qrCodeBase64 = null;
+        const { connection, lastDisconnect, qr } = update;
 
-        try {
-          await this.systemLogService.log(
-            'WARNING',
+        if (qr) {
+          this.qrCodeBase64 = await QRCode.toDataURL(qr);
+          this.status = 'QR_READY';
+          this.logger.log('QR code generated – waiting for scan');
+        }
+
+        if (connection === 'close') {
+          const statusCode = (lastDisconnect?.error as Boom)?.output?.statusCode;
+          const shouldReconnect =
+            statusCode !== DisconnectReason.loggedOut && !this.isLoggingOut;
+          this.logger.warn(
             `Connection closed (status ${statusCode}). Reconnecting: ${shouldReconnect}`,
           );
-        } catch (err) {
-          this.logger.error('Failed to log connection close event', err);
-        }
+          this.status = 'DISCONNECTED';
+          this.qrCodeBase64 = null;
 
-        if (shouldReconnect) {
-          setTimeout(() => this.connectToWhatsApp(), 3000);
+          try {
+            await this.systemLogService.log(
+              'WARNING',
+              `Connection closed (status ${statusCode}). Reconnecting: ${shouldReconnect}`,
+            );
+          } catch (err) {
+            this.logger.error('Failed to log connection close event', err);
+          }
+
+          if (shouldReconnect) {
+            setTimeout(() => this.connectToWhatsApp(), 3000);
+          }
+        } else if (connection === 'open') {
+          this.status = 'CONNECTED';
+          this.qrCodeBase64 = null;
+          this.logger.log('✅ WhatsApp connection opened successfully');
+          try {
+            await this.systemLogService.log('INFO', 'WhatsApp connection opened');
+          } catch (err) {
+            this.logger.error('Failed to log connection open event', err);
+          }
         }
-      } else if (connection === 'open') {
-        this.status = 'CONNECTED';
-        this.qrCodeBase64 = null;
-        this.logger.log('✅ WhatsApp connection opened successfully');
-        try {
-          await this.systemLogService.log('INFO', 'WhatsApp connection opened');
-        } catch (err) {
-          this.logger.error('Failed to log connection open event', err);
-        }
-      }
-    });
+      });
+    } finally {
+      this.isConnecting = false;
+    }
+  }
 
     // ── Credentials Update ─────────────────────────────────
     this.sock.ev.on('creds.update', () => {
