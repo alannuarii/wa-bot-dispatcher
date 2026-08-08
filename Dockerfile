@@ -4,18 +4,20 @@
 FROM node:22-slim AS backend-builder
 WORKDIR /app/backend
 COPY backend/package*.json ./
-RUN npm ci --no-audit --no-fund
+RUN npm ci --no-audit --no-fund --maxsockets=3
 COPY backend/ .
 RUN touch .env
 RUN npm run build
 
 # ==========================================
-# STAGE 2: Build Frontend
+# STAGE 2: Build Frontend (depends on backend-builder to force sequential build)
 # ==========================================
 FROM node:22-slim AS frontend-builder
+# Force sequential: copy a dummy file from backend-builder so BuildKit won't parallelize
+COPY --from=backend-builder /app/backend/package.json /tmp/.backend-done
 WORKDIR /app/frontend
 COPY frontend/package*.json ./
-RUN npm ci --no-audit --no-fund
+RUN npm ci --no-audit --no-fund --maxsockets=3
 COPY frontend/ .
 RUN npm run build
 

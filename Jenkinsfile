@@ -28,7 +28,8 @@ pipeline {
         stage('Build Unified Docker Image') {
             steps {
                 // Proses build Docker multi-stage (Frontend & Backend dalam 1 tabung)
-                sh "docker build -t ${IMAGE_NAME} ."
+                // --network=host: bypass Docker bridge DNS issues in Docker-in-Docker Jenkins
+                sh "docker build --network=host -t ${IMAGE_NAME} ."
             }
         }
 
