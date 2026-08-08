@@ -52,6 +52,7 @@ pipeline {
                     docker run -d \
                       --name ${CONTAINER_NAME} \
                       --restart always \
+                      --dns 8.8.8.8 --dns 1.1.1.1 \
                       -p ${HOST_PORT}:3001 \
                       -v \$(pwd)/backend/auth_info_baileys:/app/backend/auth_info_baileys \
                       ${IMAGE_NAME}
