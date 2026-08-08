@@ -1,10 +1,10 @@
 # ==========================================
 # STAGE 1: Build Backend
 # ==========================================
-FROM node:22-alpine AS backend-builder
+FROM node:22-slim AS backend-builder
 WORKDIR /app/backend
 COPY backend/package*.json ./
-RUN npm ci
+RUN npm ci --no-audit --no-fund
 COPY backend/ .
 RUN touch .env
 RUN npm run build
@@ -12,17 +12,17 @@ RUN npm run build
 # ==========================================
 # STAGE 2: Build Frontend
 # ==========================================
-FROM node:22-alpine AS frontend-builder
+FROM node:22-slim AS frontend-builder
 WORKDIR /app/frontend
 COPY frontend/package*.json ./
-RUN npm ci
+RUN npm ci --no-audit --no-fund
 COPY frontend/ .
 RUN npm run build
 
 # ==========================================
 # STAGE 3: Production Runner (Single Container)
 # ==========================================
-FROM node:22-alpine AS runner
+FROM node:22-slim AS runner
 WORKDIR /app
 
 # Copy Backend Build
