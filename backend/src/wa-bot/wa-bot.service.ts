@@ -13,6 +13,7 @@ import makeWASocket, {
   WASocket,
   fetchLatestBaileysVersion,
   makeCacheableSignalKeyStore,
+  Browsers,
 } from '@whiskeysockets/baileys';
 import { Boom } from '@hapi/boom';
 import * as QRCode from 'qrcode';
@@ -68,7 +69,11 @@ export class WaBotService implements OnModuleInit, OnModuleDestroy {
   async restart(): Promise<void> {
     this.logger.warn('Restarting bot connection…');
     await this.systemLogService.log('WARNING', 'Bot restart requested');
-    this.sock?.end(undefined);
+    try {
+      this.sock?.end(undefined);
+    } catch {
+      // ignore
+    }
     this.sock = null;
     this.status = 'DISCONNECTED';
     this.qrCodeBase64 = null;
@@ -78,7 +83,6 @@ export class WaBotService implements OnModuleInit, OnModuleDestroy {
   async logout(): Promise<void> {
     this.logger.warn('Logging out bot session…');
     await this.systemLogService.log('WARNING', 'Bot logout requested – session cleared');
-    
     this.isLoggingOut = true;
     this.status = 'DISCONNECTED';
     this.qrCodeBase64 = null;
@@ -180,6 +184,10 @@ export class WaBotService implements OnModuleInit, OnModuleDestroy {
         creds: state.creds,
         keys: makeCacheableSignalKeyStore(state.keys, baileysLogger),
       },
+      browser: Browsers.ubuntu('Chrome'),
+      connectTimeoutMs: 60000,
+      defaultQueryTimeoutMs: 0,
+      keepAliveIntervalMs: 10000,
       generateHighQualityLinkPreview: false,
     });
 

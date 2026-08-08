@@ -1,6 +1,10 @@
+import * as dns from 'dns';
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { ValidationPipe } from '@nestjs/common';
+
+// Prioritize IPv4 DNS lookup to prevent connection timeouts (408) in Docker environments
+dns.setDefaultResultOrder('ipv4first');
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
