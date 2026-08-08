@@ -180,8 +180,8 @@ export class WaBotService implements OnModuleInit, OnModuleDestroy {
       this.qrCodeBase64 = null;
 
       const { state, saveCreds } = await useMultiFileAuthState(this.authFolder);
-      // Force a known stable version instead of dynamic fetching which often triggers 428/408 errors
-      const version: [number, number, number] = [2, 3000, 1015901307];
+      // Use dynamic version to prevent 405 (outdated client) error
+      const { version } = await fetchLatestBaileysVersion();
       this.logger.log(`Using Baileys version: ${version.join('.')}`);
 
       this.sock = makeWASocket({
