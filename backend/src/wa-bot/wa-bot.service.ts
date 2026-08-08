@@ -157,7 +157,7 @@ export class WaBotService implements OnModuleInit, OnModuleDestroy {
     if (!this.sock || this.status !== 'CONNECTED') return [];
     try {
       const groups = await this.sock.groupFetchAllParticipating();
-      return Object.values(groups).map((g) => ({
+      return Object.values(groups).map((g: any) => ({
         id: g.id,
         subject: g.subject,
         participants: g.participants?.length ?? 0,
@@ -200,7 +200,7 @@ export class WaBotService implements OnModuleInit, OnModuleDestroy {
       const currentSock = this.sock;
 
       // ── Connection Update ──────────────────────────────────
-      currentSock.ev.on('connection.update', async (update) => {
+      currentSock.ev.on('connection.update', async (update: any) => {
         // Ignore events from old socket instances
         if (this.sock && this.sock !== currentSock) return;
 
@@ -255,7 +255,7 @@ export class WaBotService implements OnModuleInit, OnModuleDestroy {
       });
 
       // ── Message Listener & Dispatch ────────────────────────
-      currentSock.ev.on('messages.upsert', async ({ messages, type }) => {
+      currentSock.ev.on('messages.upsert', async ({ messages, type }: any) => {
         if (type !== 'notify') return;
 
         for (const msg of messages) {
